@@ -1,21 +1,24 @@
 import pandas as pd
 import numpy as np
+from datetime import datetime, timedelta
 
-def generate_sample_heart_rate_csv(path="sample_heart_rate_with_anomalies.csv", days=7, seed=42):
+def generate_sample_df(minutes=1440, seed=42):
     np.random.seed(seed)
-    idx = pd.date_range("2025-09-01", periods=days*24*60, freq="1T")
-    n = len(idx)
-    hr = 60 + (idx.hour >= 7) * 10 + np.random.normal(0, 3, n)
-    for _ in range(8):
-        start = np.random.randint(0, n-60)
-        hr[start:start+30] += np.linspace(20, 5, 30)
-    steps = np.random.poisson(0.1, n)
-    for _ in range(10):
-        start = np.random.randint(0, n-90)
-        steps[start:start+60] += np.random.poisson(30, 60)
-    df = pd.DataFrame({"timestamp": idx, "heart_rate": hr, "steps": steps})
-    df.to_csv(path, index=False)
-    print(f"Sample heart rate CSV saved at {path}")
+    start = datetime.now().replace(second=0, microsecond=0) - timedelta(minutes=minutes)
+    timestamps = [start + timedelta(minutes=i) for i in range(minutes)]
+    hr = []
+    for i in range(minutes):
+        base = 65 + np.sin(2*np.pi*(i/1440))*10 + np.random.normal(0,3)
+        if 400 < i < 500:  # morning exercise
+            base += 40
+        if np.random.rand() < 0.002:  # spike anomaly
+            base += 80
+        hr.append(max(30, base))
+    steps = np.random.poisson(0.5, size=minutes)
+    return pd.DataFrame({"timestamp":timestamps,"heart_rate":np.round(hr,1),"steps":steps})
 
 if __name__ == "__main__":
-    generate_sample_heart_rate_csv()
+    df = generate_sample_df()
+    df.to_csv("sample_data.csv", index=False)
+    df.to_json("sample_data.json", orient="records", date_format="iso")
+    print("Sample CSV and JSON generated.")
